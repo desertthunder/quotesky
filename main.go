@@ -1,8 +1,15 @@
 package main
 
-import "github.com/charmbracelet/log"
+import (
+	"os"
+
+	"github.com/charmbracelet/log"
+	"github.com/desertthunder/quotesky/cmd"
+)
 
 func main() {
-	log.SetLevel(log.DebugLevel)
-	log.Debug("Hello world")
+	if err := cmd.Execute(cmd.Port); err != nil {
+		log.Errorf("failed to run cli: %s", err)
+		os.Exit(1)
+	}
 }
