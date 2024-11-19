@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/desertthunder/quotesky/lib/api"
 	"github.com/urfave/cli/v2"
 )
 
@@ -48,7 +49,7 @@ func Post() *cli.Command {
 				return err
 			}
 
-			msg := Message{content, hashtags}
+			msg := api.Message{Content: content, Hashtags: hashtags}
 			data, err := json.Marshal(msg)
 
 			if err != nil {
