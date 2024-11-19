@@ -1,4 +1,4 @@
-CREATE TABLE apps IF NOT EXISTS (
+CREATE TABLE IF NOT EXISTS apps (
     handle TEXT PRIMARY KEY NOT NULL,
     token TEXT,
     created_at TEXT NOT NULL,

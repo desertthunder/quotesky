@@ -33,6 +33,7 @@ func Post() *cli.Command {
 		},
 		Action: func(ctx *cli.Context) error {
 			log.Info("Making request to tcp client")
+
 			content := ctx.String("content")
 			hashtags := ctx.StringSlice("hashtags")
 
@@ -42,7 +43,11 @@ func Post() *cli.Command {
 				}
 			}
 
-			log.Infof("Sent message content:%s\nhashtags:%s", content, strings.Join(hashtags, ", "))
+			log.Infof(
+				"Sent message content:%s\nhashtags:%s",
+				content, strings.Join(hashtags, ", "),
+			)
+
 			conn, err := net.Dial("tcp", ":9000")
 
 			if err != nil {
