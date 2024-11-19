@@ -7,8 +7,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const env_path string = ".env"
-const service string = "https://bsky.social"
 const Port int = 9000
 
 func Execute(p int) error {

@@ -94,6 +94,10 @@ func (r MigrationRunner) InsertMigrations() error {
 
 		exists, err := r.CheckExists(f)
 
+		if err != nil {
+			return err
+		}
+
 		if exists {
 			r.Log.Infof("migration %s exists. skipping insertion", f.Name())
 			continue
@@ -188,6 +192,11 @@ func (r MigrationRunner) FindAndApplyMigration(f fs.FileInfo) error {
 	r.Log.Debug(query)
 
 	tx, err := r.Conn.db.Begin()
+
+	if err != nil {
+		return err
+	}
+
 	_, err = tx.Exec(query)
 
 	if err != nil {
@@ -206,6 +215,10 @@ func (r MigrationRunner) SetApplied(f fs.FileInfo) error {
 		`UPDATE schema_migrations SET applied = TRUE WHERE name = ? RETURNING *`,
 		f.Name(),
 	)
+
+	if err != nil {
+		return err
+	}
 
 	n, err := res.RowsAffected()
 
@@ -239,7 +252,7 @@ func (r MigrationRunner) RunMigrations() error {
 		}
 
 		if p {
-			r.Log.Infof("%s applied", f.Name())
+			r.Log.Infof("%s already applied", f.Name())
 			continue
 		}
 

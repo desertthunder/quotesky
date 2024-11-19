@@ -62,6 +62,11 @@ func Post() *cli.Command {
 			}
 
 			_, err = conn.Write(append(data, '\n'))
+
+			if err != nil {
+				return err
+			}
+
 			reader := bufio.NewReader(conn)
 			resp, err := reader.ReadString('\n')
 

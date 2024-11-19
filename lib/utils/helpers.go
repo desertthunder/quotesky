@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/log"
 )
@@ -57,4 +58,19 @@ func LoadEnv(filepath string) error {
 	}
 
 	return nil
+}
+
+func Options(p string, dbg bool) log.Options {
+	opts := log.Options{
+		ReportCaller:    true,
+		ReportTimestamp: true,
+		TimeFormat:      time.Kitchen,
+		Prefix:          p,
+	}
+
+	if dbg {
+		opts.Level = log.DebugLevel
+	}
+
+	return opts
 }

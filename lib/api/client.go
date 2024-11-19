@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/desertthunder/quotesky/lib/utils"
 )
 
 const createSession string = "com.atproto.server.createSession"
-const createPost string = "app.bsky.feed.post"
+
+// const createPost string = "app.bsky.feed.post"
 
 type SessionRequest struct {
 	Identifier string `json:"identifier"`
@@ -44,6 +46,7 @@ type Session struct {
 type Client struct {
 	Service     string
 	Credentials *Credentials
+	Log         *log.Logger
 }
 
 func credentials() *Credentials {
@@ -62,17 +65,17 @@ func (c *Credentials) SetSession(s Session) {
 	c.DID = s.Did
 }
 
-func (c Client) BuildURL(service string, path string) string {
+func (c Client) buildURL(service string, path string) string {
 	return fmt.Sprintf("%s/xrpc/%s", service, path)
 }
 
 func (c Client) CreateSession() (*Session, error) {
-	uri := c.BuildURL(c.Service, createSession)
+	uri := c.buildURL(c.Service, createSession)
 	r := SessionRequest{c.Credentials.Handle, c.Credentials.Password}
 	req, err := json.Marshal(r)
 
 	if err != nil {
-		log.Errorf("unable to build body: %s", err.Error())
+		c.Log.Errorf("unable to build body: %s", err.Error())
 		return nil, err
 	}
 
@@ -80,7 +83,7 @@ func (c Client) CreateSession() (*Session, error) {
 	rsp, err := http.Post(uri, "application/json", req_body)
 
 	if err != nil {
-		log.Errorf("unable to authenticate: %s", err.Error())
+		c.Log.Errorf("unable to authenticate: %s", err.Error())
 		return nil, err
 	}
 
@@ -89,24 +92,29 @@ func (c Client) CreateSession() (*Session, error) {
 	rspBody, err := io.ReadAll(rsp.Body)
 
 	if err != nil {
-		log.Errorf("unable to read response %s", err.Error())
+		c.Log.Errorf("unable to read response %s", err.Error())
 		return nil, err
 	}
 
 	s := Session{}
 
-	json.Unmarshal(rspBody, &s)
+	err = json.Unmarshal(rspBody, &s)
 
-	fmt_j, _ := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return nil, err
+	}
 
-	log.Debugf(string(fmt_j))
-	log.Infof("session created at %s", time.Now().Format("03:04 PM on 01/02/2006"))
+	c.Log.Infof("session created at %s", time.Now().Format("03:04 PM on 01/02/2006"))
 
 	return &s, nil
 }
 
-func Init(s string) *Client {
-	return &Client{Service: s, Credentials: credentials()}
+func Init(s string, dbg bool) *Client {
+	return &Client{
+		Service:     s,
+		Credentials: credentials(),
+		Log:         log.NewWithOptions(os.Stderr, utils.Options("Client 🌎", dbg)),
+	}
 }
 
 func (c Client) CreatePost() {}

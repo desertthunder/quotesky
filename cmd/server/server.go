@@ -32,7 +32,11 @@ func (p Protocol) handleConnError(e error) {
 
 	p.logger.Error(out)
 
-	p.conn.Write([]byte(out))
+	_, err := p.conn.Write([]byte(out))
+
+	if err != nil {
+		p.logger.Errorf("unable to write to connection %s", err.Error())
+	}
 }
 
 func (p Protocol) handleMessage() {
@@ -81,11 +85,9 @@ func (p Protocol) heartbeat() {
 	defer t.Stop()
 
 	for {
-		select {
-		case tick := <-t.C:
-			log.Infof("heartbeat at %s on %s",
-				tick.Format("03:04:05 PM"), tick.Format("01/02/2006"))
-		}
+		tick := <-t.C
+
+		log.Infof("heartbeat at %s on %s", tick.Format("03:04:05 PM"), tick.Format("01/02/2006"))
 	}
 }
 
@@ -172,7 +174,11 @@ func run(ctx *cli.Context) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	utils.LoadEnv(env_path)
+	err := utils.LoadEnv(env_path)
+
+	if err != nil {
+		return err
+	}
 
 	port := ctx.Int("port")
 	beat := ctx.Int("beat")
