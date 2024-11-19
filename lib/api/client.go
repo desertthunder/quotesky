@@ -46,7 +46,7 @@ type Client struct {
 	Credentials *Credentials
 }
 
-func SetCredentials() *Credentials {
+func credentials() *Credentials {
 	handle := os.Getenv("BLUESKY_HANDLE")
 	password := os.Getenv("BLUESKY_PASSWORD")
 
@@ -103,6 +103,10 @@ func (c Client) CreateSession() (*Session, error) {
 	log.Infof("session created at %s", time.Now().Format("03:04 PM on 01/02/2006"))
 
 	return &s, nil
+}
+
+func Init(s string) *Client {
+	return &Client{Service: s, Credentials: credentials()}
 }
 
 func (c Client) CreatePost() {}
