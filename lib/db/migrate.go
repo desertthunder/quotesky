@@ -11,9 +11,8 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-const dir string = "lib/db/migrations"
-
-type files struct {
+// Migration slices
+type Files struct {
 	up   []fs.FileInfo
 	down []fs.FileInfo
 }
@@ -22,9 +21,10 @@ type files struct {
 //
 // Holds state and defines container for migration files
 type MigrationRunner struct {
-	dir   string
-	conn  DBConn
-	files files
+	Dir   string
+	Conn  *DBConn
+	Files Files
+	Log   *log.Logger
 }
 
 // Migration Record
@@ -45,14 +45,14 @@ func (m Migration) GetPath(d string) string {
 // Opens migrations directory and returns list of files
 //
 // Defaults to lib/db/migrations/*.sql
-func (r MigrationRunner) GetFiles(d string) error {
-	entries, err := os.ReadDir(d)
+func (r *MigrationRunner) GetFiles() error {
+	entries, err := os.ReadDir(r.Dir)
 
 	if err != nil {
 		return err
 	}
 
-	r.files = files{}
+	r.Files = Files{}
 
 	for _, entry := range entries {
 		info, err := entry.Info()
@@ -62,11 +62,11 @@ func (r MigrationRunner) GetFiles(d string) error {
 		}
 
 		if strings.HasSuffix(info.Name(), "up.sql") {
-			r.files.up = append(r.files.up, info)
+			r.Files.up = append(r.Files.up, info)
 		}
 
 		if strings.HasSuffix(info.Name(), "down.sql") {
-			r.files.down = append(r.files.down, info)
+			r.Files.down = append(r.Files.down, info)
 		}
 	}
 
@@ -77,10 +77,11 @@ func (r MigrationRunner) GetFiles(d string) error {
 //
 // Inserts Rows into Database
 func (r MigrationRunner) InsertMigrations() error {
-	for _, f := range r.files.up {
+	for _, f := range r.Files.up {
 		m := Migration{Name: f.Name(), Applied: false}
-		res, err := r.conn.db.Exec(
-			`INSERT INTO schema_migrations (filename, applied) VALUES (?, ?) RETURNING id`,
+
+		res, err := r.Conn.db.Exec(
+			`INSERT INTO schema_migrations (name, applied) VALUES (?, ?) RETURNING id`,
 			m.Name, m.Applied,
 		)
 
@@ -94,7 +95,7 @@ func (r MigrationRunner) InsertMigrations() error {
 			return err
 		}
 
-		log.Debugf("Inserted migration: %d", id)
+		r.Log.Debugf("Inserted migration: %d", id)
 	}
 
 	return nil
@@ -105,14 +106,14 @@ func (r MigrationRunner) InsertMigrations() error {
 // Create it if it doesn't.
 func (r MigrationRunner) CheckMigrationsTable() error {
 	m := Migration{Name: "0000_init.sql"}
-	f, err := os.ReadFile(m.GetPath(r.dir))
+	f, err := os.ReadFile(m.GetPath(r.Dir))
 
 	if err != nil {
 		return err
 	}
 
 	query := string(f)
-	_, err = r.conn.db.Exec(query)
+	_, err = r.Conn.db.Exec(query)
 
 	return err
 }
@@ -122,13 +123,13 @@ func (r MigrationRunner) CheckMigrationsTable() error {
 // If applied, ensure that the forward migrations aren't reverted
 func (r MigrationRunner) CheckApplied(f string) (bool, bool) {
 	count := 0
-	err := r.conn.db.QueryRow(
-		`SELECT COUNT(*) FROM schema_migrations WHERE filename = ?`,
+	err := r.Conn.db.QueryRow(
+		`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`,
 		f,
 	).Scan(&count)
 
 	if err != nil {
-		log.Errorf("unable to count migrations: %s", err.Error())
+		r.Log.Errorf("unable to count migrations: %s", err.Error())
 		return false, false
 	}
 
@@ -136,13 +137,13 @@ func (r MigrationRunner) CheckApplied(f string) (bool, bool) {
 
 	if created {
 		m := Migration{}
-		err := r.conn.db.QueryRow(
-			`SELECT * FROM schema_migrations WHERE filename = ?`,
+		err := r.Conn.db.QueryRow(
+			`SELECT * FROM schema_migrations WHERE name = ?`,
 			f,
 		).Scan(&m)
 
 		if err != nil {
-			log.Errorf("unable to find migrations: %s", err.Error())
+			r.Log.Errorf("unable to find migrations: %s", err.Error())
 			return created, false
 		}
 
@@ -164,17 +165,17 @@ func (r MigrationRunner) ApplyMigration(mn string) {}
 
 // Runs migrations
 func (r MigrationRunner) RunMigrations(d string) error {
-	err := r.GetFiles(d)
+	err := r.GetFiles()
 
 	if err != nil {
-		log.Error("unable to get file list: %s", err.Error())
+		r.Log.Errorf("unable to get file list: %s", err.Error())
 		os.Exit(1)
 	}
 
-	for _, f := range r.files.up {
+	for _, f := range r.Files.up {
 		name := strings.TrimSuffix(f.Name(), "up.sql")
 
-		res, err := r.conn.db.Exec(
+		res, err := r.Conn.db.Exec(
 			`UPDATE schema_migrations SET applied = TRUE WHERE name = ? RETURNING *`,
 			f.Name(),
 		)
@@ -197,8 +198,53 @@ func (r MigrationRunner) RunMigrations(d string) error {
 	return nil
 }
 
+// MigrationRunner constructor
+func Runner(d string, c *DBConn, dbg bool) *MigrationRunner {
+	opts := log.Options{
+		ReportTimestamp: true,
+		ReportCaller:    true,
+		TimeFormat:      time.Kitchen,
+		Prefix:          "Runner 🚀",
+	}
+
+	if dbg {
+		opts.Level = log.DebugLevel
+	}
+
+	return &MigrationRunner{Dir: d, Conn: c, Files: Files{}, Log: log.NewWithOptions(
+		os.Stderr, opts,
+	)}
+}
+
 // Checks for stored but unapplied migrations
 func CheckPending() {}
 
 // Runs migration process
-func Execute()
+func (r MigrationRunner) Execute() error {
+	r.Log.Debug("starting execution")
+
+	defer r.Conn.db.Close()
+
+	err := r.CheckMigrationsTable()
+
+	if err != nil {
+		r.Log.Errorf("something went wrong: %s", err.Error())
+		return err
+	}
+
+	err = r.GetFiles()
+
+	if err != nil {
+		r.Log.Errorf("something went wrong: %s", err.Error())
+		return err
+	}
+
+	err = r.InsertMigrations()
+
+	if err != nil {
+		r.Log.Errorf("something went wrong: %s", err.Error())
+		return err
+	}
+
+	return nil
+}

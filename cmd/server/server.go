@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/desertthunder/quotesky/lib/api"
 	"github.com/desertthunder/quotesky/lib/utils"
 	"github.com/urfave/cli/v2"
 )
@@ -52,7 +53,7 @@ func (p Protocol) handleMessage() {
 			continue
 		}
 
-		msg := Message{}
+		msg := api.Message{}
 		err = json.Unmarshal([]byte(data), &msg)
 
 		if err != nil {
@@ -135,14 +136,18 @@ func (p *Protocol) SetAddress(pt int) {
 	p.addr = fmt.Sprintf(":%s", strconv.Itoa(p.port))
 }
 
+// Sets prefixed logger to protocol process
 func (p *Protocol) SetLogger(opts *log.Options) {
 	if opts == nil {
-		p.logger = log.NewWithOptions(os.Stderr, log.Options{
-			ReportCaller:    true,
-			ReportTimestamp: true,
-			TimeFormat:      time.Stamp,
-			Prefix:          "Protocol 🖧",
-		})
+		p.logger = log.NewWithOptions(
+			os.Stderr,
+			log.Options{
+				ReportCaller:    true,
+				ReportTimestamp: true,
+				TimeFormat:      time.Stamp,
+				Prefix:          "Protocol 🖧",
+			},
+		)
 
 		return
 	}
@@ -151,7 +156,7 @@ func (p *Protocol) SetLogger(opts *log.Options) {
 }
 
 // Protocol constructor
-func Init(p int, b int) *Protocol {
+func protocol(p int, b int) *Protocol {
 	pr := Protocol{}
 	pr.SetAddress(p)
 	pr.SetHeartRate(b)
@@ -161,6 +166,28 @@ func Init(p int, b int) *Protocol {
 	return &pr
 }
 
+// Run tcp listener
+func run(ctx *cli.Context) error {
+	if ctx.Bool("debug") {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	utils.LoadEnv(env_path)
+
+	port := ctx.Int("port")
+	beat := ctx.Int("beat")
+
+	p := protocol(port, beat)
+
+	if err := p.listen(); err != nil {
+		log.Errorf("protocol issue: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// server Command definition
 func RunServer(p int) *cli.Command {
 	return &cli.Command{
 		Name:    "tcp",
@@ -180,24 +207,6 @@ func RunServer(p int) *cli.Command {
 				Value: false,
 			},
 		},
-		Action: func(ctx *cli.Context) error {
-			if ctx.Bool("debug") {
-				log.SetLevel(log.DebugLevel)
-			}
-
-			utils.LoadEnv(env_path)
-
-			port := ctx.Int("port")
-			beat := ctx.Int("beat")
-
-			p := Init(port, beat)
-
-			if err := p.listen(); err != nil {
-				log.Errorf("protocol issue: %s", err.Error())
-				return err
-			}
-
-			return nil
-		},
+		Action: run,
 	}
 }

@@ -1,5 +1,18 @@
 # QuoteSky
 
+| Drawing |
+| --- |
+| ![drawing of bot](./assets/bskybot.excalidraw.png) |
+
+## Protocol
+
+- `QUOTE:POST` – Posts a random quote.
+- `QUOTE:GET` – Gets a random quote.
+- `QUOTE:LIST` – Lists all quotes.
+- `QUOTE:ADD <quote>` – Adds a new quote.
+- `QUOTE:REMOVE <quote>` – Removes a quote.
+- `QUOTE:UPDATE <quote>` – Updates a quote.
+
 ## Setup
 
 1. Clone the repository

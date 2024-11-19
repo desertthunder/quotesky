@@ -11,11 +11,6 @@ const env_path string = ".env"
 const service string = "https://bsky.social"
 const Port int = 9000
 
-type Message struct {
-	Content  string
-	Hashtags []string
-}
-
 func Execute(p int) error {
 	app := &cli.App{
 		Name:  "qsky",
@@ -24,7 +19,7 @@ func Execute(p int) error {
 			log.Info("execute quotesky")
 			return nil
 		},
-		Commands: []*cli.Command{RunServer(p), Post()},
+		Commands: []*cli.Command{RunServer(p), Post(), Setup()},
 	}
 
 	return app.Run(os.Args)

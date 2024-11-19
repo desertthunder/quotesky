@@ -4,29 +4,39 @@ package db
 import (
 	"database/sql"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/log"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type DBConn struct {
-	db     *sql.DB
-	level  log.Level
-	logger *log.Logger
+	db  *sql.DB
+	Log *log.Logger
 }
 
+// Create/Connect to database
 func Connect(dbg bool) *DBConn {
 	var err error
-	conn := DBConn{level: log.InfoLevel}
 
-	if dbg {
-		conn.level = log.DebugLevel
+	opts := log.Options{
+		ReportCaller:    true,
+		ReportTimestamp: true,
+		TimeFormat:      time.Kitchen,
+		Prefix:          "Database 💾",
 	}
 
-	conn.db, err = sql.Open("sqlite", "db.sqlite3")
+	if dbg {
+		opts.Level = log.DebugLevel
+	}
+
+	conn := DBConn{Log: log.NewWithOptions(os.Stderr, opts)}
+	conn.db, err = sql.Open("sqlite3", "db.sqlite3")
 
 	if err != nil {
-		conn.logger.Errorf("unable to connect to database: %s", err.Error())
+		conn.Log.Errorf(
+			"unable to connect to database: %s", err.Error(),
+		)
 
 		os.Exit(1)
 	}
