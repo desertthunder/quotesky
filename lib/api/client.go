@@ -14,8 +14,7 @@ import (
 )
 
 const createSession string = "com.atproto.server.createSession"
-
-// const createPost string = "app.bsky.feed.post"
+const createPost string = "com.atproto.repo.createRecord"
 
 type SessionRequest struct {
 	Identifier string `json:"identifier"`
@@ -23,24 +22,50 @@ type SessionRequest struct {
 }
 
 type Credentials struct {
-	Handle       string
-	Password     string
-	AccessToken  string
-	RefreshToken string
-	DID          string
+	Handle          string
+	Password        string
+	AccessToken     string
+	RefreshToken    string
+	DID             string
+	ServiceEndpoint string
+}
+
+type Service struct {
+	ID              string `json:"id"`
+	ServiceEndpoint string `json:"serviceEndpoint"`
+	Type            string `json:"type"`
+}
+
+type VerificationMethod struct {
+	Controller         string `json:"controller"`
+	ID                 string `json:"id"`
+	PublicKeyMultibase string `json:"publicKeyMultibase"`
+	Type               string `json:"type"`
+}
+
+type DidDoc struct {
+	Context            []string             `json:"@context"`
+	AlsoKnownAs        []string             `json:"alsoKnownAs"`
+	ID                 string               `json:"id"`
+	Service            []Service            `json:"service"`
+	VerificationMethod []VerificationMethod `json:"verificationMethod"`
 }
 
 type Session struct {
-	AccessJwt       string      `json:"accessJwt"`
-	RefreshJwt      string      `json:"refreshJwt"`
-	Handle          string      `json:"handle"`
-	Did             string      `json:"did"`
-	DidDoc          interface{} `json:"didDoc"`
-	Email           string      `json:"email"`
-	EmailConfirmed  bool        `json:"emailConfirmed"`
-	EmailAuthFactor bool        `json:"emailAuthFactor"`
-	Active          bool        `json:"active"`
-	Status          string      `json:"status"`
+	AccessJwt       string `json:"accessJwt"`
+	RefreshJwt      string `json:"refreshJwt"`
+	Handle          string `json:"handle"`
+	Did             string `json:"did"`
+	DidDoc          DidDoc `json:"didDoc"`
+	Email           string `json:"email"`
+	EmailConfirmed  bool   `json:"emailConfirmed"`
+	EmailAuthFactor bool   `json:"emailAuthFactor"`
+	Active          bool   `json:"active"`
+	Status          string `json:"status"`
+}
+
+func (s Session) GetServiceEndpoint() string {
+	return s.DidDoc.Service[0].ServiceEndpoint
 }
 
 type Client struct {
@@ -63,6 +88,7 @@ func (c *Credentials) SetSession(s Session) {
 	c.AccessToken = s.AccessJwt
 	c.RefreshToken = s.RefreshJwt
 	c.DID = s.Did
+	c.ServiceEndpoint = s.GetServiceEndpoint()
 }
 
 func (c Client) buildURL(service string, path string) string {
@@ -105,6 +131,7 @@ func (c Client) CreateSession() (*Session, error) {
 	}
 
 	c.Log.Infof("session created at %s", time.Now().Format("03:04 PM on 01/02/2006"))
+	c.Credentials.SetSession(s)
 
 	return &s, nil
 }
@@ -117,4 +144,48 @@ func Init(s string, dbg bool) *Client {
 	}
 }
 
-func (c Client) CreatePost() {}
+func (c Client) SerializePost(p *PostRecord) []byte {
+	d := BuildPostRequest(c.Credentials.DID, "app.bsky.feed.post", *p)
+	j, _ := json.Marshal(d)
+
+	return j
+}
+
+func (c Client) CreatePost(m Message) error {
+	p := BuildPost(m)
+	data := c.SerializePost(p)
+	uri := c.buildURL(c.Credentials.ServiceEndpoint, createPost)
+
+	c.Log.Debugf("creating post: %s to %s", string(data), uri)
+
+	req, err := http.NewRequest(http.MethodPost, uri, bytes.NewBuffer(data))
+
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Credentials.AccessToken))
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+
+	c.Log.Debug(res.Status)
+
+	if err != nil {
+		c.Log.Error(err.Error())
+		return err
+	}
+
+	defer res.Body.Close()
+
+	rspBody, err := io.ReadAll(res.Body)
+
+	if err != nil {
+		c.Log.Error(err.Error())
+		return err
+	}
+
+	c.Log.Debug(string(rspBody))
+
+	return nil
+}

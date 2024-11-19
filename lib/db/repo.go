@@ -15,6 +15,11 @@ type AppRepository struct {
 	conn *sql.DB
 	Log  *log.Logger
 }
+type App struct {
+	token  string
+	handle string
+	id     int
+}
 
 func InitAppRepo(dbg bool) *AppRepository {
 	dbc := Connect(dbg)
@@ -71,5 +76,18 @@ func (a AppRepository) CreateOrUpdate(h string, t string) error {
 	}
 
 	return nil
+}
 
+// Retrieve by handle
+func (a AppRepository) GetByHandle(h string) (*App, error) {
+	app := App{}
+
+	err := a.conn.QueryRow(`SELECT id FROM apps WHERE handle = ?`, h).
+		Scan(&app.id, &app.handle, &app.token)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &app, nil
 }

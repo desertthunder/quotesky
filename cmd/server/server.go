@@ -18,6 +18,7 @@ import (
 )
 
 type Protocol struct {
+	client   *api.Client
 	port     int
 	addr     string
 	beat     time.Duration
@@ -71,6 +72,13 @@ func (p Protocol) handleMessage() {
 		}
 
 		log.Info(s)
+
+		err = p.client.CreatePost(msg)
+
+		if err != nil {
+			p.handleConnError(err)
+		}
+
 		_, err = p.conn.Write([]byte("OK\n\n"))
 
 		if err != nil {
@@ -144,6 +152,7 @@ func (p *Protocol) SetLogger(opts *log.Options) {
 		p.logger = log.NewWithOptions(
 			os.Stderr,
 			log.Options{
+				Level:           log.DebugLevel,
 				ReportCaller:    true,
 				ReportTimestamp: true,
 				TimeFormat:      time.Stamp,
@@ -157,6 +166,15 @@ func (p *Protocol) SetLogger(opts *log.Options) {
 	p.logger = log.NewWithOptions(os.Stderr, *opts)
 }
 
+func (p *Protocol) SetClient() {
+	p.client = api.Init(service, true)
+	_, err := p.client.CreateSession()
+
+	if err != nil {
+		log.Errorf("unable to set session: %s", err.Error())
+	}
+}
+
 // Protocol constructor
 func protocol(p int, b int) *Protocol {
 	pr := Protocol{}
@@ -164,6 +182,7 @@ func protocol(p int, b int) *Protocol {
 	pr.SetHeartRate(b)
 	pr.SetListener()
 	pr.SetLogger(nil)
+	pr.SetClient()
 
 	return &pr
 }

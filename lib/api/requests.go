@@ -18,7 +18,7 @@ func (m Message) Format() string {
 	return fmt.Sprintf(
 		"%s\n%s\n",
 		m.Content,
-		m.Hashtags,
+		time.Now().Format(time.Kitchen),
 	)
 }
 
@@ -32,12 +32,6 @@ func (p PostRecord) CreatedAtTime() (time.Time, error) {
 	return time.Parse(time.RFC3339, p.CreatedAt)
 }
 
-func (p *PostRecord) SetCreatedAt() {
-	t := time.Now()
-
-	p.CreatedAt = t.Format(time.RFC3339)
-}
-
 // Request Body for Post Creation
 //
 // https://docs.bsky.app/docs/advanced-guides/posts
@@ -48,9 +42,14 @@ type PostRequest struct {
 	Record     PostRecord `json:"record"`
 }
 
-func BuildPost(m Message, r string) *PostRecord {
-	p := PostRecord{Type: PostType, Text: m.Format()}
-	p.SetCreatedAt()
+func BuildPost(m Message) *PostRecord {
+	return &PostRecord{
+		Type:      PostType,
+		Text:      m.Format(),
+		CreatedAt: time.Now().Format("2006-01-02T15:04:05.000000Z"),
+	}
+}
 
-	return &p
+func BuildPostRequest(r string, c string, p PostRecord) *PostRequest {
+	return &PostRequest{r, c, p}
 }
