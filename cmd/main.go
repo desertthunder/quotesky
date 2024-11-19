@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/log"
-	"github.com/desertthunder/quotesky/cmd"
+	cmd "github.com/desertthunder/quotesky/cmd/server"
 )
 
 func main() {

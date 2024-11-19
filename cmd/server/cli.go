@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"os"
@@ -10,8 +10,6 @@ import (
 const env_path string = ".env"
 const service string = "https://bsky.social"
 const Port int = 9000
-
-var commands []*cli.Command
 
 type Message struct {
 	Content  string

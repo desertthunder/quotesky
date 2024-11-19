@@ -1,4 +1,4 @@
-package lib
+package api
 
 import (
 	"bytes"
@@ -15,14 +15,24 @@ import (
 const createSession string = "com.atproto.server.createSession"
 
 type Credentials struct {
-	Handle   string
-	Password string
-	JWT      string
+	Handle       string
+	Password     string
+	AccessToken  string
+	RefreshToken string
+	DID          string
 }
 
-type IClient interface {
-	CreateSession()
-	BuildURL(service string, path string) string
+type Session struct {
+	AccessJwt       string      `json:"accessJwt"`
+	RefreshJwt      string      `json:"refreshJwt"`
+	Handle          string      `json:"handle"`
+	Did             string      `json:"did"`
+	DidDoc          interface{} `json:"didDoc"`
+	Email           string      `json:"email"`
+	EmailConfirmed  bool        `json:"emailConfirmed"`
+	EmailAuthFactor bool        `json:"emailAuthFactor"`
+	Active          bool        `json:"active"`
+	Status          string      `json:"status"`
 }
 
 type Client struct {
@@ -40,8 +50,10 @@ func SetCredentials() *Credentials {
 	}
 }
 
-func (c *Credentials) SetJWT(tok string) {
-	c.JWT = tok
+func (c *Credentials) SetSession(s Session) {
+	c.AccessToken = s.AccessJwt
+	c.RefreshToken = s.RefreshJwt
+	c.DID = s.Did
 }
 
 func (c Client) BuildURL(service string, path string) string {
@@ -55,6 +67,7 @@ type createSessionRequest struct {
 
 func (c Client) CreateSession() error {
 	uri := c.BuildURL(c.Service, createSession)
+
 	r := createSessionRequest{
 		Identifier: c.Credentials.Handle,
 		Password:   c.Credentials.Password,
@@ -85,7 +98,13 @@ func (c Client) CreateSession() error {
 		return err
 	}
 
-	c.Credentials.SetJWT(string(rspBody))
+	s := Session{}
+
+	json.Unmarshal(rspBody, &s)
+
+	fmt_j, _ := json.MarshalIndent(s, "", "  ")
+
+	log.Debugf(string(fmt_j))
 
 	log.Infof("session created at %s", time.Now().Format("03:04 PM on 01/02/2006"))
 

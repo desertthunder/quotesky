@@ -1,4 +1,4 @@
-package lib
+package utils
 
 import (
 	"bufio"
@@ -53,7 +53,7 @@ func LoadEnv(filepath string) error {
 		value := strings.TrimSpace(parts[1])
 
 		os.Setenv(key, value)
-		log.Infof("set key %s", key)
+		log.Debugf("set key %s", key)
 	}
 
 	return nil
